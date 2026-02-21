@@ -1,0 +1,172 @@
+# ============================================================
+# Scalp2 Configuration — BTC/USDT HFT Scalping Framework
+# ============================================================
+
+data:
+  symbol: "BTC/USDT"
+  exchange: "binanceusdm"
+  timeframes:
+    primary: "15m"
+    mtf: ["1h", "4h"]
+  date_range:
+    start: "2020-01-01"
+    end: "2026-02-20"
+  cache_dir: "./data/raw"
+  processed_dir: "./data/processed"
+
+features:
+  wavelet:
+    wavelet: "sym5"
+    level: 4
+    threshold_mode: "soft"
+    window: 256
+    apply_to: ["close", "volume"]
+
+  technical:
+    rsi_period: 14
+    ema_periods: [9, 21, 55]
+    macd: [12, 26, 9]
+    bollinger:
+      period: 20
+      std: 2.0
+    atr_period: 14
+    stochastic:
+      k: 14
+      d: 3
+      smooth: 3
+    adx_period: 14
+
+  volatility:
+    garman_klass_window: 14
+    parkinson_window: 14
+
+  orderflow:
+    cvd_proxy: true
+    funding_rate: true
+    open_interest: true
+
+  smart_money:
+    fvg_min_gap_pct: 0.001
+    liquidity_sweep_lookback: 20
+    vwap_session_hours: 24
+
+labeling:
+  method: "triple_barrier"
+  tp_multiplier: 1.2
+  sl_multiplier: 1.0
+  max_holding_bars: 10
+  min_return_threshold: 0.0005
+  atr_period: 14
+
+model:
+  seq_len: 64
+
+  tcn:
+    num_channels: [64, 64, 64, 64]
+    kernel_size: 3
+    dropout: 0.2
+
+  gru:
+    hidden_size: 128
+    num_layers: 2
+    dropout: 0.2
+    bidirectional: false
+
+  fusion:
+    latent_dim: 128
+    dropout: 0.3
+
+  xgboost:
+    objective: "multi:softprob"
+    num_class: 3
+    max_depth: 5
+    n_estimators: 500
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.7
+    min_child_weight: 50
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    tree_method: "gpu_hist"
+    eval_metric: "mlogloss"
+    early_stopping_rounds: 30
+
+  handcrafted_top_k: 40
+
+training:
+  optimizer:
+    type: "AdamW"
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+
+  scheduler:
+    type: "ReduceLROnPlateau"
+    patience: 5
+    factor: 0.5
+    min_lr: 1.0e-6
+
+  batch_size: 256
+  max_epochs: 100
+  gradient_clip_norm: 1.0
+  use_amp: true
+
+  early_stopping:
+    patience: 10
+    min_delta: 1.0e-5
+
+  loss:
+    primary: "cross_entropy"
+    auxiliary: "sharpe"
+    alpha_start: 1.0
+    alpha_end: 0.5
+    alpha_anneal_epochs: 20
+
+  class_weights: "inverse_frequency"
+
+  walk_forward:
+    train_bars: 20160
+    val_bars: 4320
+    test_bars: 2880
+    purge_bars: 48
+    embargo_bars: 12
+    step_bars: 2880
+
+  scaler: "robust"
+
+regime:
+  n_states: 3
+  features: ["log_return", "gk_vol_14", "volume_zscore"]
+  covariance_type: "full"
+  n_iter: 100
+  choppy_threshold: 0.5
+
+execution:
+  confidence_threshold: 0.70
+  max_trades_per_day: 2
+
+  position_sizing:
+    method: "fractional_kelly"
+    max_fraction: 0.02
+    kelly_fraction: 0.25
+
+  trade_management:
+    partial_tp_1_atr: 0.6
+    partial_tp_1_pct: 0.5
+    full_tp_atr: 1.2
+    breakeven_trigger_atr: 0.6
+    trailing_activation_atr: 0.8
+    trailing_distance_atr: 0.5
+
+  model_refresh:
+    frequency: "weekly"
+    min_sharpe_threshold: 0.5
+    fallback: true
+
+logging:
+  level: "INFO"
+  dir: "./logs"
+  tensorboard: true
+
+seed: 42

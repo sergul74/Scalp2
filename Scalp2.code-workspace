@@ -1,0 +1,13 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "claudeCode.useTerminal": false,
+        "chat.agent.maxRequests": 100,
+        "chat.agent.enabled": true,
+        "chat.agent.codeBlockProgress": false
+    }
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -18,16 +19,22 @@ OHLCV_COLUMNS = ["timestamp", "open", "high", "low", "close", "volume"]
 
 
 class OHLCVDownloader:
-    """Download and cache OHLCV data from Binance via CCXT."""
+    """Download and cache OHLCV data from a CCXT exchange."""
 
     def __init__(self, config: DataConfig):
         self.config = config
-        self.exchange = getattr(ccxt, config.exchange)({"enableRateLimit": True})
+        try:
+            exchange_cls = getattr(ccxt, config.exchange)
+        except AttributeError as e:
+            raise ValueError(
+                f"Unknown CCXT exchange '{config.exchange}'."
+            ) from e
+        self.exchange = exchange_cls({"enableRateLimit": True})
         self.cache_dir = Path(config.cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _cache_path(self, timeframe: str) -> Path:
-        symbol_safe = self.config.symbol.replace("/", "_")
+        symbol_safe = re.sub(r"[^A-Za-z0-9]+", "_", self.config.symbol).strip("_")
         start = self.config.date_range.start.replace("-", "")
         end = self.config.date_range.end.replace("-", "")
         return self.cache_dir / f"{symbol_safe}_{timeframe}_{start}_{end}.parquet"
@@ -65,6 +72,7 @@ class OHLCVDownloader:
         all_candles: list[list] = []
         since = start_ms
         limit = 1000  # Binance max per request
+        consecutive_network_errors = 0
 
         while since < end_ms:
             try:
@@ -74,12 +82,33 @@ class OHLCVDownloader:
                     since=since,
                     limit=limit,
                 )
+                consecutive_network_errors = 0
             except ccxt.RateLimitExceeded:
                 logger.warning("Rate limit hit, sleeping 10s")
                 time.sleep(10)
                 continue
             except ccxt.NetworkError as e:
-                logger.warning("Network error: %s, retrying in 5s", e)
+                err_msg = str(e).lower()
+                if "451" in err_msg and "restricted location" in err_msg:
+                    raise RuntimeError(
+                        "Exchange access blocked for this location (HTTP 451). "
+                        f"Current exchange: '{self.config.exchange}'. "
+                        "Select an exchange available in your region."
+                    ) from e
+
+                consecutive_network_errors += 1
+                if consecutive_network_errors >= 5:
+                    raise RuntimeError(
+                        f"Aborting after {consecutive_network_errors} consecutive "
+                        f"network errors on '{self.config.exchange}'. "
+                        "Check connectivity or switch exchange."
+                    ) from e
+
+                logger.warning(
+                    "Network error: %s, retrying in 5s (%d/5)",
+                    e,
+                    consecutive_network_errors,
+                )
                 time.sleep(5)
                 continue
 

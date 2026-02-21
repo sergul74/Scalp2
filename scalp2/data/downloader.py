@@ -30,8 +30,23 @@ class OHLCVDownloader:
                 f"Unknown CCXT exchange '{config.exchange}'."
             ) from e
         self.exchange = exchange_cls({"enableRateLimit": True})
+        # Respect the exchange's advertised per-request delay (ms -> s).
+        self._base_pause_sec = max(
+            float(getattr(self.exchange, "rateLimit", 200)) / 1000.0, 0.2
+        )
+        self._last_request_ts = 0.0
         self.cache_dir = Path(config.cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def _throttle(self, multiplier: float = 1.0) -> None:
+        """Sleep to avoid sending requests faster than exchange limits."""
+        min_interval = self._base_pause_sec * multiplier
+        elapsed = time.monotonic() - self._last_request_ts
+        if elapsed < min_interval:
+            time.sleep(min_interval - elapsed)
+
+    def _mark_request(self) -> None:
+        self._last_request_ts = time.monotonic()
 
     def _cache_path(self, timeframe: str) -> Path:
         symbol_safe = re.sub(r"[^A-Za-z0-9]+", "_", self.config.symbol).strip("_")
@@ -73,19 +88,33 @@ class OHLCVDownloader:
         since = start_ms
         limit = 1000  # Binance max per request
         consecutive_network_errors = 0
+        rate_limit_retries = 0
 
         while since < end_ms:
             try:
+                self._throttle()
                 candles = self.exchange.fetch_ohlcv(
                     self.config.symbol,
                     timeframe=timeframe,
                     since=since,
                     limit=limit,
                 )
+                self._mark_request()
                 consecutive_network_errors = 0
+                rate_limit_retries = 0
             except ccxt.RateLimitExceeded:
-                logger.warning("Rate limit hit, sleeping 10s")
-                time.sleep(10)
+                rate_limit_retries += 1
+                sleep_s = min(
+                    self._base_pause_sec * (2 ** min(rate_limit_retries, 6)),
+                    60.0,
+                )
+                logger.warning(
+                    "Rate limit hit on %s, sleeping %.1fs (%d)",
+                    self.config.exchange,
+                    sleep_s,
+                    rate_limit_retries,
+                )
+                time.sleep(sleep_s)
                 continue
             except ccxt.NetworkError as e:
                 err_msg = str(e).lower()
@@ -97,6 +126,7 @@ class OHLCVDownloader:
                     ) from e
 
                 consecutive_network_errors += 1
+                rate_limit_retries = 0
                 if consecutive_network_errors >= 5:
                     raise RuntimeError(
                         f"Aborting after {consecutive_network_errors} consecutive "
@@ -171,12 +201,30 @@ class OHLCVDownloader:
 
         all_rates: list[dict] = []
         since = start_ms
+        rate_limit_retries = 0
 
         while since < end_ms:
             try:
+                self._throttle()
                 rates = self.exchange.fetch_funding_rate_history(
                     self.config.symbol, since=since, limit=1000
                 )
+                self._mark_request()
+                rate_limit_retries = 0
+            except ccxt.RateLimitExceeded:
+                rate_limit_retries += 1
+                sleep_s = min(
+                    self._base_pause_sec * (2 ** min(rate_limit_retries, 6)),
+                    60.0,
+                )
+                logger.warning(
+                    "Funding rate limit hit on %s, sleeping %.1fs (%d)",
+                    self.config.exchange,
+                    sleep_s,
+                    rate_limit_retries,
+                )
+                time.sleep(sleep_s)
+                continue
             except Exception as e:
                 logger.warning("Funding rate fetch error: %s", e)
                 break

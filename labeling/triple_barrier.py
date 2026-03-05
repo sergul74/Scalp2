@@ -200,13 +200,13 @@ def triple_barrier_labels(
                 combined_returns[i] = long_ret[i]
             else:
                 combined_labels[i] = -1
-                combined_returns[i] = short_ret[i]
+                combined_returns[i] = -short_ret[i]
         elif long_tp:
             combined_labels[i] = 1
             combined_returns[i] = long_ret[i]
         elif short_tp:
             combined_labels[i] = -1
-            combined_returns[i] = short_ret[i]
+            combined_returns[i] = -short_ret[i]
         else:
             combined_labels[i] = 0
             combined_returns[i] = long_ret[i]  # Time barrier return

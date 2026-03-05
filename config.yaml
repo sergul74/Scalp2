@@ -9,7 +9,7 @@ data:
     primary: "15m"
     mtf: ["1h", "4h"]
   date_range:
-    start: "2020-01-01"
+    start: "2021-01-01"
     end: "2026-02-20"
   cache_dir: "./data/raw"
   processed_dir: "./data/processed"
@@ -88,7 +88,8 @@ model:
     gamma: 0.1
     reg_alpha: 0.1
     reg_lambda: 1.0
-    tree_method: "gpu_hist"
+    tree_method: "hist"
+    device: "cuda"
     eval_metric: "mlogloss"
     early_stopping_rounds: 30
 
@@ -138,13 +139,21 @@ training:
 regime:
   n_states: 3
   features: ["log_return", "gk_vol_14", "volume_zscore"]
-  covariance_type: "full"
+  covariance_type: "diag"
   n_iter: 100
-  choppy_threshold: 0.5
+  choppy_threshold: 0.4
 
 execution:
   confidence_threshold: 0.70
   max_trades_per_day: 2
+  min_adx: 20
+  min_atr_percentile: 0.15
+
+  order_execution:
+    order_type: "limit"
+    maker_fee_bps: 2
+    taker_fee_bps: 4
+    slippage_bps: 2
 
   position_sizing:
     method: "fractional_kelly"

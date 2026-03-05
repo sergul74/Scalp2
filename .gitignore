@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Data — raw/processed market data, not for VCS
+data/
+
+# Model artifacts and checkpoints
+checkpoints/
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.xgb
+
+# Logs
+logs/
+*.log
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# Colab / cloud drive temp files
+tmpclaude-*
+*.tmp
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude internal state
+.claude/

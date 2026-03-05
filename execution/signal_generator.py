@@ -41,14 +41,16 @@ class SignalGenerator:
     """Generate trade signals from the full model pipeline.
 
     Pipeline:
-        1. Build features from latest bars
+        1. Check daily trade limit
         2. Check regime — halt if choppy
-        3. Extract latent from HybridEncoder
-        4. Predict via XGBoost meta-learner
-        5. Apply confidence threshold
-        6. Apply daily trade limit
-        7. Compute position size (fractional Kelly)
-        8. Generate TradeSignal
+        3. Check ADX — skip if no trend
+        4. Check ATR percentile — skip low volatility
+        5. Extract latent from HybridEncoder
+        6. Build meta-features
+        7. Predict via XGBoost meta-learner
+        8. Apply confidence threshold
+        9. Determine direction & TP/SL
+       10. Compute position size (fractional Kelly)
     """
 
     def __init__(
@@ -89,6 +91,8 @@ class SignalGenerator:
         current_atr: float,
         current_price: float,
         current_time: datetime,
+        current_adx: float = 999.0,
+        atr_percentile: float = 1.0,
     ) -> TradeSignal:
         """Generate a trade signal from prepared features.
 
@@ -98,6 +102,8 @@ class SignalGenerator:
             current_atr: Current ATR value.
             current_price: Current close price.
             current_time: Current timestamp.
+            current_adx: Current ADX value (skip if below min_adx).
+            atr_percentile: Rolling ATR percentile 0-1 (skip if below min).
 
         Returns:
             TradeSignal with direction and parameters.
@@ -118,23 +124,34 @@ class SignalGenerator:
             logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
             return self._no_trade(current_price, current_time, f"choppy_{current_regime}")
 
-        # 3. Extract latent
+        # 3. Check ADX — no trend below threshold
+        if current_adx < exec_cfg.min_adx:
+            logger.info("ADX too low (%.1f < %.1f), skipping", current_adx, exec_cfg.min_adx)
+            return self._no_trade(current_price, current_time, "low_adx")
+
+        # 4. Check ATR percentile — no edge in ultra-low volatility
+        if atr_percentile < exec_cfg.min_atr_percentile:
+            logger.info("ATR percentile too low (%.2f < %.2f), skipping",
+                        atr_percentile, exec_cfg.min_atr_percentile)
+            return self._no_trade(current_price, current_time, "low_volatility")
+
+        # 5. Extract latent
         x = torch.from_numpy(features_scaled).unsqueeze(0).to(self.device)
         with torch.no_grad():
             latent = self.model.extract_latent(x).cpu().numpy()
 
-        # 4. Build meta-features
+        # 6. Build meta-features
         handcrafted = features_scaled[-1:, self.top_feature_indices]
         regime_input = regime_probs[-1:].astype(np.float32)
         meta_features = XGBoostMetaLearner.build_meta_features(
             latent, handcrafted, regime_input
         )
 
-        # 5. XGBoost prediction
+        # 7. XGBoost prediction
         probs = self.meta_learner.predict_proba(meta_features)[0]
         prob_dict = {"short": float(probs[0]), "hold": float(probs[1]), "long": float(probs[2])}
 
-        # 6. Confidence check
+        # 8. Confidence check
         max_prob = max(probs[0], probs[2])
         if max_prob < exec_cfg.confidence_threshold:
             logger.info(
@@ -143,7 +160,7 @@ class SignalGenerator:
             )
             return self._no_trade(current_price, current_time, "low_confidence")
 
-        # 7. Determine direction
+        # 9. Determine direction
         if probs[2] > probs[0]:
             direction = Direction.LONG
             confidence = float(probs[2])
@@ -155,7 +172,7 @@ class SignalGenerator:
             tp = current_price - exec_cfg.trade_management.full_tp_atr * current_atr
             sl = current_price + self.config.labeling.sl_multiplier * current_atr
 
-        # 8. Position sizing (fractional Kelly)
+        # 10. Position sizing (fractional Kelly)
         position_size = self._kelly_size(confidence, exec_cfg)
 
         self.daily_trade_count += 1

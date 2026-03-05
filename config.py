@@ -13,7 +13,7 @@ import yaml
 
 @dataclass
 class DateRange:
-    start: str = "2020-01-01"
+    start: str = "2021-01-01"
     end: str = "2026-02-20"
 
 
@@ -145,7 +145,8 @@ class XGBoostConfig:
     gamma: float = 0.1
     reg_alpha: float = 0.1
     reg_lambda: float = 1.0
-    tree_method: str = "gpu_hist"
+    tree_method: str = "hist"
+    device: str = "cuda"
     eval_metric: str = "mlogloss"
     early_stopping_rounds: int = 30
 
@@ -226,7 +227,7 @@ class RegimeConfig:
     features: List[str] = field(
         default_factory=lambda: ["log_return", "gk_vol_14", "volume_zscore"]
     )
-    covariance_type: str = "full"
+    covariance_type: str = "diag"
     n_iter: int = 100
     choppy_threshold: float = 0.5
 
@@ -258,9 +259,22 @@ class ModelRefreshConfig:
 
 
 @dataclass
+class OrderExecutionConfig:
+    order_type: str = "limit"
+    maker_fee_bps: float = 2.0
+    taker_fee_bps: float = 4.0
+    slippage_bps: float = 2.0
+
+
+@dataclass
 class ExecutionConfig:
     confidence_threshold: float = 0.70
     max_trades_per_day: int = 2
+    min_adx: float = 20.0
+    min_atr_percentile: float = 0.15
+    order_execution: OrderExecutionConfig = field(
+        default_factory=OrderExecutionConfig
+    )
     position_sizing: PositionSizingConfig = field(
         default_factory=PositionSizingConfig
     )

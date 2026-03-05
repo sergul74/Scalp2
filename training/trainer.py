@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
 from scalp2.config import TrainingConfig
@@ -66,7 +66,7 @@ class Stage1Trainer:
         )
 
         # AMP scaler
-        self.scaler = GradScaler(enabled=config.use_amp)
+        self.scaler = GradScaler('cuda', enabled=config.use_amp)
         self.use_amp = config.use_amp
 
         # Auxiliary loss
@@ -208,7 +208,7 @@ class Stage1Trainer:
 
             self.optimizer.zero_grad()
 
-            with autocast(enabled=self.use_amp):
+            with autocast('cuda', enabled=self.use_amp):
                 logits, _ = self.model(batch_x)
                 loss, _ = compute_combined_loss(
                     logits, batch_y, batch_r,
@@ -245,7 +245,7 @@ class Stage1Trainer:
             batch_y = batch_y.to(self.device)
             batch_r = batch_r.to(self.device)
 
-            with autocast(enabled=self.use_amp):
+            with autocast('cuda', enabled=self.use_amp):
                 logits, _ = self.model(batch_x)
                 loss, _ = compute_combined_loss(
                     logits, batch_y, batch_r,
@@ -286,7 +286,7 @@ class Stage1Trainer:
         latents = []
         for batch_x, _, _ in loader:
             batch_x = batch_x.to(self.device)
-            with autocast(enabled=self.use_amp):
+            with autocast('cuda', enabled=self.use_amp):
                 latent = self.model.extract_latent(batch_x)
             latents.append(latent.cpu().numpy())
 

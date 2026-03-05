@@ -12,12 +12,16 @@ from scalp2.features.orderflow import compute_all_orderflow
 from scalp2.features.smart_money import compute_all_smart_money
 from scalp2.features.technical import compute_all_technical
 from scalp2.features.volatility import compute_all_volatility
-from scalp2.features.wavelet import wavelet_denoise_fast
+from scalp2.features.wavelet import wavelet_denoise
 
 logger = logging.getLogger(__name__)
 
-# Columns that are raw OHLCV and should not be used as model features
-OHLCV_COLS = {"open", "high", "low", "close", "volume"}
+# Columns that are raw market data and should not be used as model features
+RAW_DATA_COLS = {
+    "open", "high", "low", "close", "volume",
+    "quote_volume", "num_trades",
+    "taker_buy_base_vol", "taker_buy_quote_vol",
+}
 
 
 def build_features(
@@ -50,11 +54,12 @@ def build_features(
     for col in config.wavelet.apply_to:
         if col in result.columns:
             logger.info("Applying wavelet denoising to %s", col)
-            denoised = wavelet_denoise_fast(
+            denoised = wavelet_denoise(
                 result[col],
                 wavelet=config.wavelet.wavelet,
                 level=config.wavelet.level,
                 threshold_mode=config.wavelet.threshold_mode,
+                window=config.wavelet.window,
             )
             result[f"{col}_denoised"] = denoised.astype(np.float32)
 
@@ -85,7 +90,7 @@ def build_features(
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
     """Extract model feature column names (excludes raw OHLCV)."""
-    return [c for c in df.columns if c not in OHLCV_COLS]
+    return [c for c in df.columns if c not in RAW_DATA_COLS]
 
 
 def drop_warmup_nans(df: pd.DataFrame, threshold: float = 0.1) -> pd.DataFrame:

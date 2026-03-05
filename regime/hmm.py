@@ -41,6 +41,7 @@ class RegimeDetector:
             n_components=config.n_states,
             covariance_type=config.covariance_type,
             n_iter=config.n_iter,
+            min_covar=1e-3,
             random_state=42,
             verbose=False,
         )
@@ -78,7 +79,23 @@ class RegimeDetector:
             self.feature_names,
         )
 
-        self.model.fit(X)
+        # Standardize features for numerical stability
+        self._mean = X.mean(axis=0)
+        self._std = X.std(axis=0) + 1e-8
+        X_scaled = (X - self._mean) / self._std
+
+        try:
+            self.model.fit(X_scaled)
+        except (ValueError, np.linalg.LinAlgError) as e:
+            logger.warning(
+                "HMM fit failed (%s), using uniform regime prior", e
+            )
+            self.state_map = {0: self.BULL, 1: self.BEAR, 2: self.CHOPPY}
+            self._fitted = True
+            self._fallback = True
+            return self
+
+        self._fallback = False
 
         # Map states by mean return (first feature = log_return)
         means = self.model.means_[:, 0]
@@ -123,7 +140,13 @@ class RegimeDetector:
             raise RuntimeError("RegimeDetector must be fitted before prediction.")
 
         X = self._prepare_features(df)
-        posteriors = self.model.predict_proba(X)
+
+        # Fallback: return uniform probs if HMM fit failed
+        if getattr(self, '_fallback', False):
+            return np.full((len(X), 3), 1.0 / 3, dtype=np.float32)
+
+        X_scaled = (X - self._mean) / self._std
+        posteriors = self.model.predict_proba(X_scaled)
 
         # Reorder columns to [bull, bear, choppy]
         reordered = np.zeros((len(X), 3), dtype=np.float32)

@@ -176,6 +176,7 @@ class Stage2Trainer:
             "test_predictions": test_preds,
             "test_probabilities": test_probs,
             "test_labels": test_labels_aligned[:min_test],
+            "regime_probs": regime_test[:min_test],
             "feature_importance": importance_df,
             "top_feature_indices": top_indices,
             "top_feature_names": selected_names,

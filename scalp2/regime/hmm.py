@@ -224,22 +224,37 @@ class RegimeDetector:
         return probs.argmax(axis=1)
 
     def current_regime(self, df: pd.DataFrame) -> str:
-        """Get the current regime name from the last bar.
+        """Get the current regime name from the last bar (forward-backward).
 
-        Returns:
-            'bull', 'bear', or 'choppy'.
+        WARNING: Uses forward-backward — only use for training data.
+        For live/val/test, use current_regime_online().
         """
         probs = self.predict_proba(df)
         regime_idx = probs[-1].argmax()
         return self.STATE_NAMES[regime_idx]
 
+    def current_regime_online(self, df: pd.DataFrame) -> str:
+        """Get the current regime name from the last bar (forward-only).
+
+        Safe for live inference and val/test — no look-ahead bias.
+        """
+        probs = self.predict_proba_online(df)
+        regime_idx = probs[-1].argmax()
+        return self.STATE_NAMES[regime_idx]
+
     def is_tradeable(self, df: pd.DataFrame) -> np.ndarray:
-        """Check if regime permits trading.
+        """Check if regime permits trading (forward-backward).
 
-        Returns False for bars where P(choppy) > threshold.
-
-        Returns:
-            (n_samples,) boolean array.
+        WARNING: Uses forward-backward — only use for training data.
+        For live/val/test, use is_tradeable_online().
         """
         probs = self.predict_proba(df)
+        return probs[:, self.CHOPPY] <= self.config.choppy_threshold
+
+    def is_tradeable_online(self, df: pd.DataFrame) -> np.ndarray:
+        """Check if regime permits trading (forward-only).
+
+        Safe for live inference and val/test — no look-ahead bias.
+        """
+        probs = self.predict_proba_online(df)
         return probs[:, self.CHOPPY] <= self.config.choppy_threshold

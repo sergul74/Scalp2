@@ -116,9 +116,9 @@ class SignalGenerator:
             logger.info("Daily trade limit reached (%d)", exec_cfg.max_trades_per_day)
             return self._no_trade(current_price, current_time, "daily_limit")
 
-        # 2. Check regime
-        regime_probs = self.regime_detector.predict_proba(regime_df)
-        current_regime = self.regime_detector.current_regime(regime_df)
+        # 2. Check regime (forward-only to avoid look-ahead bias)
+        regime_probs = self.regime_detector.predict_proba_online(regime_df)
+        current_regime = self.regime_detector.current_regime_online(regime_df)
 
         if regime_probs[-1, RegimeDetector.CHOPPY] > self.config.regime.choppy_threshold:
             logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
@@ -201,9 +201,14 @@ class SignalGenerator:
         """Fractional Kelly criterion position sizing.
 
         f = (p*b - q) / b, capped at max_fraction.
-        b = TP/SL ratio, p = confidence, q = 1-p.
+        b = effective TP/SL ratio accounting for partial TP exits.
         """
-        b = self.config.labeling.tp_multiplier / self.config.labeling.sl_multiplier
+        tm = exec_cfg.trade_management
+        partial_pct = tm.partial_tp_1_pct      # 0.5
+        partial_atr = tm.partial_tp_1_atr      # 0.6
+        full_atr = tm.full_tp_atr              # 1.2
+        effective_tp = partial_pct * partial_atr + (1 - partial_pct) * full_atr
+        b = effective_tp / self.config.labeling.sl_multiplier
         p = confidence
         q = 1 - p
 

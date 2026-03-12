@@ -159,6 +159,8 @@ execution:
     method: "fractional_kelly"
     max_fraction: 0.02
     kelly_fraction: 0.25
+    leverage: 10
+    maintenance_margin: 0.005
 
   trade_management:
     partial_tp_1_atr: 0.6
@@ -167,6 +169,21 @@ execution:
     breakeven_trigger_atr: 0.6
     trailing_activation_atr: 0.8
     trailing_distance_atr: 0.5
+
+  slippage_model:
+    base_bps: 2.0
+    volatility_scale: 1.0
+    enabled: true
+
+  market_impact:
+    base_impact_bps: 0.5
+    reference_notional_usd: 100000.0
+    enabled: true
+
+  funding_rate:
+    method: "fixed"
+    fixed_rate_pct: 0.01
+    enabled: true
 
   model_refresh:
     frequency: "weekly"

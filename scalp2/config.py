@@ -239,6 +239,8 @@ class PositionSizingConfig:
     method: str = "fractional_kelly"
     max_fraction: float = 0.02
     kelly_fraction: float = 0.25
+    leverage: int = 1
+    maintenance_margin: float = 0.005
 
 
 @dataclass
@@ -256,6 +258,27 @@ class ModelRefreshConfig:
     frequency: str = "weekly"
     min_sharpe_threshold: float = 0.5
     fallback: bool = True
+
+
+@dataclass
+class SlippageModelConfig:
+    base_bps: float = 2.0
+    volatility_scale: float = 1.0
+    enabled: bool = False
+
+
+@dataclass
+class MarketImpactConfig:
+    base_impact_bps: float = 0.5
+    reference_notional_usd: float = 100_000.0
+    enabled: bool = False
+
+
+@dataclass
+class FundingRateConfig:
+    method: str = "fixed"
+    fixed_rate_pct: float = 0.01
+    enabled: bool = True
 
 
 @dataclass
@@ -282,6 +305,15 @@ class ExecutionConfig:
         default_factory=TradeManagementConfig
     )
     model_refresh: ModelRefreshConfig = field(default_factory=ModelRefreshConfig)
+    slippage_model: SlippageModelConfig = field(
+        default_factory=SlippageModelConfig
+    )
+    market_impact: MarketImpactConfig = field(
+        default_factory=MarketImpactConfig
+    )
+    funding_rate: FundingRateConfig = field(
+        default_factory=FundingRateConfig
+    )
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────

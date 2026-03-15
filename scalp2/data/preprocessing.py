@@ -123,6 +123,10 @@ def clean_ohlcv(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     elif not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError("DataFrame must have a 'timestamp' column or DatetimeIndex")
 
+    # Ensure index is tz-aware (UTC) for consistent reindexing
+    if df.index.tz is None:
+        df.index = df.index.tz_localize("UTC")
+
     df = df.sort_index()
 
     # Remove exact duplicate timestamps

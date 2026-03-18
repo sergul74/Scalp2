@@ -56,8 +56,11 @@ def load_binance_csv(path: str | Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     df = df.rename(columns=_BINANCE_RENAME)
 
-    # Convert ms epoch → UTC datetime
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    # Convert ms epoch or string → UTC datetime
+    if pd.api.types.is_numeric_dtype(df["timestamp"]):
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    else:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.set_index("timestamp").sort_index()
 
     # Keep only useful columns

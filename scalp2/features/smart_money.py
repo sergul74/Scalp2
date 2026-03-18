@@ -140,7 +140,7 @@ def vwap_distance(
     """
     # Determine bars per session based on index frequency
     if hasattr(df.index, "freq") and df.index.freq is not None:
-        freq_minutes = df.index.freq.delta.total_seconds() / 60
+        freq_minutes = pd.Timedelta(df.index.freq).total_seconds() / 60
     else:
         # Estimate from first two timestamps
         if len(df) > 1:

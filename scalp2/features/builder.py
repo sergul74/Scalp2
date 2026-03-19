@@ -89,8 +89,40 @@ def build_features(
 
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
-    """Extract model feature column names (excludes raw OHLCV)."""
-    return [c for c in df.columns if c not in RAW_DATA_COLS]
+    """Extract model feature column names by filtering out raw prices and non-stationary features."""
+    # Exact column names to drop (raw data + absolute/price-based features)
+    exact_drops = {
+        "open", "high", "low", "close", "volume",
+        "quote_volume", "num_trades",
+        "taker_buy_base_vol", "taker_buy_quote_vol",
+        
+        # Drop absolute magnitudes scaling with price
+        "macd_line", "macd_signal", "macd_hist",
+        "bb_middle", "bb_upper", "bb_lower",
+        "vwap",
+        
+        # Drop constantly growing numbers
+        "cvd_cumulative",
+        "volume_sma_20",
+        "oi_delta", 
+    }
+    
+    # Prefixes/Patterns to drop
+    drop_prefixes = ("ema_", "atr_")
+    keep_suffixes = ("_slope", "_pct")
+    
+    features = []
+    for c in df.columns:
+        if c in exact_drops:
+            continue
+            
+        # Drop raw EMAs and raw ATR (but keep ema_X_slope and atr_pct)
+        if c.startswith(drop_prefixes) and not c.endswith(keep_suffixes):
+            continue
+            
+        features.append(c)
+        
+    return features
 
 
 def drop_warmup_nans(df: pd.DataFrame, threshold: float = 0.1) -> pd.DataFrame:

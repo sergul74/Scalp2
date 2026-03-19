@@ -180,6 +180,9 @@ def compute_all_technical(df: pd.DataFrame, config: TechnicalConfig) -> pd.DataF
     # MACD
     macd_df = compute_macd(df["close"], *config.macd)
     result = pd.concat([result, macd_df], axis=1)
+    
+    # Stationary MACD momentum (since raw macd_hist represents dollar amounts)
+    result["macd_hist_pct"] = (result["macd_hist"] / (df["close"] + 1e-10)).astype(np.float32)
 
     # Bollinger Bands
     bb_df = compute_bollinger(df["close"], config.bollinger.period, config.bollinger.std)

@@ -52,8 +52,8 @@ features:
 
 labeling:
   method: "triple_barrier"
-  tp_multiplier: 1.2
-  sl_multiplier: 1.0
+  tp_multiplier: 1.5
+  sl_multiplier: 0.8
   max_holding_bars: 10
   min_return_threshold: 0.0005
   atr_period: 14
@@ -145,7 +145,7 @@ regime:
 
 execution:
   confidence_threshold: 0.52
-  max_trades_per_day: 8
+  max_trades_per_day: 12
   min_adx: 20
   min_atr_percentile: 0.15
 
@@ -163,11 +163,11 @@ execution:
     maintenance_margin: 0.005
 
   trade_management:
-    partial_tp_1_atr: 0.6
+    partial_tp_1_atr: 0.75
     partial_tp_1_pct: 0.5
-    full_tp_atr: 1.2
-    breakeven_trigger_atr: 0.6
-    trailing_activation_atr: 0.8
+    full_tp_atr: 1.5
+    breakeven_trigger_atr: 0.75
+    trailing_activation_atr: 1.0
     trailing_distance_atr: 0.5
 
   slippage_model:

@@ -106,8 +106,12 @@ def get_feature_columns(df: pd.DataFrame) -> list[str]:
         
         # Constantly growing / drifting numbers
         "cvd_cumulative",
+        "cvd_divergence",       # cumulative - SMA(cumulative) = still non-stationary
         "volume_sma_20",
-        "oi_delta", 
+        "oi_delta",
+        
+        # Unbounded counters
+        "bars_since_sweep",     # grows without bound (can reach thousands)
     }
     
     # Base prefixes to drop (after stripping MTF prefix)

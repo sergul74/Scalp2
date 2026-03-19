@@ -89,44 +89,58 @@ def build_features(
 
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
-    """Extract model feature column names by filtering out raw prices and non-stationary features."""
-    # Exact column names to drop (raw data + absolute/price-based features)
+    """Extract model feature column names by filtering out raw prices and non-stationary features.
+    
+    Handles both primary (15m) columns and MTF-prefixed columns (1h_, 4h_).
+    """
+    # Exact base names to drop (checked after stripping MTF prefix)
     exact_drops = {
         "open", "high", "low", "close", "volume",
         "quote_volume", "num_trades",
         "taker_buy_base_vol", "taker_buy_quote_vol",
         
-        # Drop absolute magnitudes scaling with price
+        # Absolute magnitudes that scale with price
         "macd_line", "macd_signal", "macd_hist",
         "bb_middle", "bb_upper", "bb_lower",
         "vwap",
         
-        # Drop constantly growing numbers
+        # Constantly growing / drifting numbers
         "cvd_cumulative",
         "volume_sma_20",
         "oi_delta", 
     }
     
-    # Prefixes/Patterns to drop
+    # Base prefixes to drop (after stripping MTF prefix)
     drop_prefixes = ("ema_", "atr_")
+    # Suffixes that make an otherwise-dropped column safe (stationary)
     keep_suffixes = ("_slope", "_pct")
+    # MTF timeframe prefixes to strip before checking
+    mtf_prefixes = ("1h_", "4h_", "1d_")
     
-    features = []
-    for c in df.columns:
-        if c in exact_drops:
-            continue
-            
-        # Drop raw EMAs and raw ATR (but keep ema_X_slope and atr_pct)
-        if c.startswith(drop_prefixes) and not c.endswith(keep_suffixes):
-            continue
-            
-        # Drop raw denoised prices and volumes (non-stationary absolute values)
-        if "_denoised" in c:
-            continue
-            
-        features.append(c)
+    def _is_non_stationary(col: str) -> bool:
+        """Check if a column (with or without MTF prefix) is non-stationary."""
+        # Strip MTF prefix to get the base column name
+        base = col
+        for pfx in mtf_prefixes:
+            if col.startswith(pfx):
+                base = col[len(pfx):]
+                break
         
-    return features
+        # Check exact drops
+        if base in exact_drops:
+            return True
+        
+        # Check prefix drops (but keep safe suffixes)
+        if base.startswith(drop_prefixes) and not base.endswith(keep_suffixes):
+            return True
+        
+        # Check denoised (raw price/volume after wavelet)
+        if "_denoised" in base:
+            return True
+        
+        return False
+    
+    return [c for c in df.columns if not _is_non_stationary(c)]
 
 
 def drop_warmup_nans(df: pd.DataFrame, threshold: float = 0.1) -> pd.DataFrame:

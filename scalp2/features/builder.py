@@ -120,6 +120,10 @@ def get_feature_columns(df: pd.DataFrame) -> list[str]:
         if c.startswith(drop_prefixes) and not c.endswith(keep_suffixes):
             continue
             
+        # Drop raw denoised prices and volumes (non-stationary absolute values)
+        if "_denoised" in c:
+            continue
+            
         features.append(c)
         
     return features

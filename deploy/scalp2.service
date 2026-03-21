@@ -13,7 +13,8 @@ EnvironmentFile=/opt/scalp2/.env
 ExecStart=/opt/scalp2/venv/bin/python -m scalp2.live.bot \
     --config /opt/scalp2/config.yaml \
     --checkpoint-dir /opt/scalp2/checkpoints \
-    --state-dir /opt/scalp2/state
+    --state-dir /opt/scalp2/state \
+    --log-dir /opt/scalp2/logs
 
 # Auto-restart on crash
 Restart=always

@@ -498,8 +498,14 @@ def main():
     parser.add_argument("--config", default="config.yaml", help="Config YAML path")
     parser.add_argument("--checkpoint-dir", default="./checkpoints", help="Model checkpoint dir")
     parser.add_argument("--state-dir", default="./state", help="Bot state persistence dir")
+    parser.add_argument("--log-dir", default="./logs", help="Log file directory")
     parser.add_argument("--fold", type=int, default=None, help="Specific fold index (default: latest)")
     args = parser.parse_args()
+
+    # Ensure log directory exists
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "scalp2_bot.log"
 
     # Logging setup
     logging.basicConfig(
@@ -508,7 +514,7 @@ def main():
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler("scalp2_bot.log", encoding="utf-8"),
+            logging.FileHandler(str(log_file), encoding="utf-8"),
         ],
     )
 

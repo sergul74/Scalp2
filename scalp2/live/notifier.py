@@ -94,6 +94,40 @@ class TelegramNotifier:
         )
         self._send(msg)
 
+    def cycle_summary(
+        self,
+        time_str: str,
+        price: float,
+        atr: float,
+        atr_pct: float,
+        adx: float,
+        signal: str,
+        reason: str,
+        confidence: float | None = None,
+        entry: float | None = None,
+        sl: float | None = None,
+        tp: float | None = None,
+    ) -> None:
+        """Send a concise 15-minute cycle summary."""
+        if signal == "NO_TRADE":
+            emoji = "⏸️"
+            signal_line = f"Sinyal : <b>İşlem Yok</b> ({reason})"
+        else:
+            emoji = "🟢" if signal == "LONG" else "🔴"
+            signal_line = (
+                f"Sinyal : <b>{signal}</b> (güven: {confidence*100:.1f}%)\n"
+                f"Giriş  : <code>${entry:,.1f}</code>\n"
+                f"SL     : <code>${sl:,.1f}</code> | TP: <code>${tp:,.1f}</code>"
+            )
+        msg = (
+            f"{emoji} <b>15dk Rapor — {time_str}</b>\n"
+            f"Fiyat  : <code>${price:,.1f}</code>\n"
+            f"ATR    : <code>{atr:.1f}</code> (%{atr_pct*100:.0f})\n"
+            f"ADX    : <code>{adx:.1f}</code>\n"
+            f"{signal_line}"
+        )
+        self._send(msg)
+
     def error(self, message: str) -> None:
         self._send(f"🚨 <b>HATA</b>\n<code>{message[:500]}</code>")
 

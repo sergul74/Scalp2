@@ -250,11 +250,40 @@ class LiveBot:
 
         self.state.last_signal_time = now_key
 
+        # ── Cycle summary: Telegram + CSV ─────────────────────────────────
+        price = data["current_price"]
+        atr = data["current_atr"]
+        atr_pct = data["atr_percentile"]
+        adx = data["current_adx"]
+
         if signal.direction == Direction.NO_TRADE:
-            logger.info("No trade signal (reason: %s)", signal.regime)
+            reason = signal.regime or "unknown"
+            logger.info("No trade signal (reason: %s)", reason)
+
+            # Telegram cycle summary
+            self.notifier.cycle_summary(
+                time_str=now_key, price=price, atr=atr,
+                atr_pct=atr_pct, adx=adx,
+                signal="NO_TRADE", reason=reason,
+            )
+            # CSV log
+            self._log_cycle_csv(now_key, price, atr, atr_pct, adx, "NO_TRADE", reason)
             return
 
         # We have a signal — execute!
+        direction = signal.direction.value
+        self.notifier.cycle_summary(
+            time_str=now_key, price=price, atr=atr,
+            atr_pct=atr_pct, adx=adx,
+            signal=direction, reason="SIGNAL",
+            confidence=signal.confidence,
+            entry=signal.entry_price,
+            sl=signal.stop_loss, tp=signal.take_profit,
+        )
+        self._log_cycle_csv(
+            now_key, price, atr, atr_pct, adx, direction, "SIGNAL",
+            signal.confidence, signal.entry_price, signal.stop_loss, signal.take_profit,
+        )
         self._execute_signal(signal, data["current_atr"])
 
     def _execute_signal(self, signal, current_atr: float) -> None:
@@ -449,6 +478,50 @@ class LiveBot:
 
         self.state.active_trade = None
         self.state.save(self.state_dir)
+
+    # ── CSV Cycle Log ─────────────────────────────────────────────────────
+
+    def _log_cycle_csv(
+        self,
+        time_str: str,
+        price: float,
+        atr: float,
+        atr_pct: float,
+        adx: float,
+        signal: str,
+        reason: str,
+        confidence: float | None = None,
+        entry: float | None = None,
+        sl: float | None = None,
+        tp: float | None = None,
+    ) -> None:
+        """Append one row to cycle_history.csv."""
+        import csv
+        csv_path = self.state_dir / "cycle_history.csv"
+        write_header = not csv_path.exists()
+        try:
+            with open(csv_path, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                if write_header:
+                    writer.writerow([
+                        "time", "price", "atr", "atr_pct", "adx",
+                        "signal", "reason", "confidence", "entry", "sl", "tp",
+                    ])
+                writer.writerow([
+                    time_str,
+                    f"{price:.1f}",
+                    f"{atr:.1f}",
+                    f"{atr_pct:.3f}",
+                    f"{adx:.1f}",
+                    signal,
+                    reason,
+                    f"{confidence:.3f}" if confidence else "",
+                    f"{entry:.1f}" if entry else "",
+                    f"{sl:.1f}" if sl else "",
+                    f"{tp:.1f}" if tp else "",
+                ])
+        except Exception as e:
+            logger.warning("CSV log error: %s", e)
 
     # ── Scheduler ─────────────────────────────────────────────────────────
 

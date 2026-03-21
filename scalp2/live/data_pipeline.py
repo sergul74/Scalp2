@@ -102,7 +102,7 @@ class DataPipeline:
             last_row = df_full.iloc[-1]
             atr_col = f"atr_{self.config.labeling.atr_period}"
             current_atr = float(last_row.get(atr_col, 0.0)) if atr_col in df_full.columns else 0.0
-            current_adx = float(last_row.get("adx_14", 999.0)) if "adx_14" in df_full.columns else 999.0
+            current_adx = float(last_row.get("adx", 999.0)) if "adx" in df_full.columns else 999.0
             current_price = float(last_row["close"])
 
             # ATR percentile (rolling rank over 96 bars ≈ 24h)

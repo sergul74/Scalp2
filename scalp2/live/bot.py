@@ -20,6 +20,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Load .env file if present (for local dev — on VPS, systemd EnvironmentFile handles this)
+def _load_dotenv():
+    env_path = Path.cwd() / ".env"
+    if not env_path.exists():
+        return
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip()
+            if key and value and key not in os.environ:
+                os.environ[key] = value
+
+_load_dotenv()
+
 import numpy as np
 import torch
 

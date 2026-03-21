@@ -16,8 +16,10 @@ from scalp2.live.exchange import BinanceExecutor
 
 logger = logging.getLogger(__name__)
 
-# Extra bars to fetch for feature warmup (wavelet=256, indicators~50, seq_len=64)
-_WARMUP_BARS = 400
+# Extra bars to fetch for feature warmup (wavelet=256 + MTF NaN + seq_len=64)
+# 400 is NOT enough — warmup drops ~340 rows, leaving only ~60.
+# 800 bars → ~460 usable rows after warmup → plenty for seq_len=64.
+_WARMUP_BARS = 800
 
 
 class DataPipeline:

@@ -124,12 +124,19 @@ class SignalGenerator:
             logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
             return self._no_trade(current_price, current_time, f"choppy_{current_regime}")
 
-        # 3. Check ADX — no trend below threshold
+        # 3. Check Time-of-Day Filter
+        if exec_cfg.time_of_day_filter.enabled:
+            hour = current_time.hour if hasattr(current_time, "hour") else pd.to_datetime(current_time).hour
+            if hour in exec_cfg.time_of_day_filter.blocked_hours_utc:
+                logger.debug("Blocked time of day (Hour %d UTC), skipping", hour)
+                return self._no_trade(current_price, current_time, f"blocked_time_{hour}")
+
+        # 4. Check ADX — no trend below threshold
         if current_adx < exec_cfg.min_adx:
             logger.info("ADX too low (%.1f < %.1f), skipping", current_adx, exec_cfg.min_adx)
             return self._no_trade(current_price, current_time, "low_adx")
 
-        # 4. Check ATR percentile — no edge in ultra-low volatility
+        # 5. Check ATR percentile — no edge in ultra-low volatility
         if atr_percentile < exec_cfg.min_atr_percentile:
             logger.info("ATR percentile too low (%.2f < %.2f), skipping",
                         atr_percentile, exec_cfg.min_atr_percentile)

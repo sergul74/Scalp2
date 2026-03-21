@@ -290,11 +290,20 @@ class OrderExecutionConfig:
 
 
 @dataclass
+class TimeOfDayFilterConfig:
+    enabled: bool = False
+    blocked_hours_utc: List[int] = field(default_factory=list)
+
+
+@dataclass
 class ExecutionConfig:
     confidence_threshold: float = 0.70
     max_trades_per_day: int = 2
     min_adx: float = 20.0
     min_atr_percentile: float = 0.15
+    time_of_day_filter: TimeOfDayFilterConfig = field(
+        default_factory=TimeOfDayFilterConfig
+    )
     order_execution: OrderExecutionConfig = field(
         default_factory=OrderExecutionConfig
     )

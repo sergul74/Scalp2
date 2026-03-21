@@ -144,10 +144,14 @@ regime:
   choppy_threshold: 0.55
 
 execution:
+  time_of_day_filter:
+    enabled: true
+    blocked_hours_utc: [3, 4, 11, 12, 20]
+
   confidence_threshold: 0.52
   max_trades_per_day: 12
   min_adx: 20
-  min_atr_percentile: 0.15
+  min_atr_percentile: 0.05
 
   order_execution:
     order_type: "limit"
@@ -163,12 +167,12 @@ execution:
     maintenance_margin: 0.005
 
   trade_management:
-    partial_tp_1_atr: 0.75
+    partial_tp_1_atr: 0.8
     partial_tp_1_pct: 0.5
-    full_tp_atr: 1.5
-    breakeven_trigger_atr: 0.75
-    trailing_activation_atr: 1.0
-    trailing_distance_atr: 0.5
+    full_tp_atr: 2.0
+    breakeven_trigger_atr: 0.8
+    trailing_activation_atr: 1.2
+    trailing_distance_atr: 0.6
 
   slippage_model:
     base_bps: 2.0

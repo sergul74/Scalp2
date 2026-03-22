@@ -268,6 +268,8 @@ class LiveBot:
                 time_str=now_key, price=price, atr=atr,
                 atr_pct=atr_pct, adx=adx,
                 signal="NO_TRADE", reason=reason,
+                regime=signal.market_regime,
+                probs=signal.probabilities,
             )
             # CSV log
             self._log_cycle_csv(now_key, price, atr, atr_pct, adx, "NO_TRADE", reason)
@@ -282,6 +284,8 @@ class LiveBot:
             confidence=signal.confidence,
             entry=signal.entry_price,
             sl=signal.stop_loss, tp=signal.take_profit,
+            regime=signal.market_regime,
+            probs=signal.probabilities,
         )
         self._log_cycle_csv(
             now_key, price, atr, atr_pct, adx, direction, "SIGNAL",
@@ -341,7 +345,8 @@ class LiveBot:
             tp=signal.take_profit,
             size_usd=size_usd,
             confidence=signal.confidence,
-            regime=signal.regime,
+            regime=signal.market_regime,
+            atr=current_atr,
         )
 
     # ── Trade Management ──────────────────────────────────────────────────
@@ -477,6 +482,7 @@ class LiveBot:
             pnl_usd=pnl_usd,
             pnl_pct=pnl_pct * 100,
             reason=reason,
+            bars_held=trade.bars_held,
         )
 
         self.state.active_trade = None

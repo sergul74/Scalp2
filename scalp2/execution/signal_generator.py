@@ -35,6 +35,7 @@ class TradeSignal:
     regime: str
     timestamp: datetime
     probabilities: dict  # {short, hold, long}
+    market_regime: str = ""  # actual market regime: bull/bear/choppy
 
 
 class SignalGenerator:
@@ -122,25 +123,25 @@ class SignalGenerator:
 
         if regime_probs[-1, RegimeDetector.CHOPPY] > self.config.regime.choppy_threshold:
             logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
-            return self._no_trade(current_price, current_time, f"choppy_{current_regime}")
+            return self._no_trade(current_price, current_time, f"choppy_{current_regime}", market_regime=current_regime)
 
         # 3. Check Time-of-Day Filter
         if exec_cfg.time_of_day_filter.enabled:
             hour = current_time.hour if hasattr(current_time, "hour") else pd.to_datetime(current_time).hour
             if hour in exec_cfg.time_of_day_filter.blocked_hours_utc:
                 logger.debug("Blocked time of day (Hour %d UTC), skipping", hour)
-                return self._no_trade(current_price, current_time, f"blocked_time_{hour}")
+                return self._no_trade(current_price, current_time, f"blocked_time_{hour}", market_regime=current_regime)
 
         # 4. Check ADX — no trend below threshold
         if current_adx < exec_cfg.min_adx:
             logger.info("ADX too low (%.1f < %.1f), skipping", current_adx, exec_cfg.min_adx)
-            return self._no_trade(current_price, current_time, "low_adx")
+            return self._no_trade(current_price, current_time, "low_adx", market_regime=current_regime)
 
         # 5. Check ATR percentile — no edge in ultra-low volatility
         if atr_percentile < exec_cfg.min_atr_percentile:
             logger.info("ATR percentile too low (%.2f < %.2f), skipping",
                         atr_percentile, exec_cfg.min_atr_percentile)
-            return self._no_trade(current_price, current_time, "low_volatility")
+            return self._no_trade(current_price, current_time, "low_volatility", market_regime=current_regime)
 
         # 5. Extract latent
         x = torch.from_numpy(features_scaled).unsqueeze(0).to(self.device)
@@ -165,7 +166,7 @@ class SignalGenerator:
                 "Low confidence (max=%.3f < %.3f), skipping",
                 max_prob, exec_cfg.confidence_threshold,
             )
-            return self._no_trade(current_price, current_time, "low_confidence")
+            return self._no_trade(current_price, current_time, "low_confidence", market_regime=current_regime, probs=prob_dict)
 
         # 9. Determine direction
         if probs[2] > probs[0]:
@@ -194,6 +195,7 @@ class SignalGenerator:
             regime=current_regime,
             timestamp=current_time,
             probabilities=prob_dict,
+            market_regime=current_regime,
         )
 
         logger.info(
@@ -227,7 +229,8 @@ class SignalGenerator:
         return min(size, exec_cfg.position_sizing.max_fraction)
 
     def _no_trade(
-        self, price: float, time: datetime, reason: str
+        self, price: float, time: datetime, reason: str,
+        market_regime: str = "", probs: dict | None = None,
     ) -> TradeSignal:
         """Generate a NO_TRADE signal."""
         return TradeSignal(
@@ -239,5 +242,6 @@ class SignalGenerator:
             position_size=0.0,
             regime=reason,
             timestamp=time,
-            probabilities={"short": 0.0, "hold": 1.0, "long": 0.0},
+            probabilities=probs or {"short": 0.0, "hold": 1.0, "long": 0.0},
+            market_regime=market_regime,
         )

@@ -64,17 +64,22 @@ class TelegramNotifier:
         size_usd: float,
         confidence: float,
         regime: str,
+        atr: float = 0.0,
     ) -> None:
         emoji = "🟢" if direction == "LONG" else "🔴"
+        rr = abs(entry - tp) / abs(entry - sl) if abs(entry - sl) > 0 else 0
         msg = (
             f"{emoji} <b>{direction} Açıldı</b>\n"
             f"Giriş : <code>${entry:,.1f}</code>\n"
             f"SL    : <code>${sl:,.1f}</code>\n"
             f"TP    : <code>${tp:,.1f}</code>\n"
+            f"R:R   : <code>{rr:.1f}:1</code>\n"
             f"Boyut : <code>${size_usd:,.1f}</code>\n"
             f"Güven : <code>{confidence*100:.1f}%</code>\n"
             f"Rejim : {regime}"
         )
+        if atr > 0:
+            msg += f"\nATR   : <code>{atr:.1f}</code>"
         await self._send(msg)
 
     async def trade_closed(
@@ -85,6 +90,7 @@ class TelegramNotifier:
         pnl_usd: float,
         pnl_pct: float,
         reason: str,
+        bars_held: int = 0,
     ) -> None:
         emoji = "✅" if pnl_usd >= 0 else "❌"
         msg = (
@@ -94,6 +100,11 @@ class TelegramNotifier:
             f"PnL   : <code>{'+' if pnl_usd >= 0 else ''}{pnl_usd:,.2f}$"
             f" ({'+' if pnl_pct >= 0 else ''}{pnl_pct:.2f}%)</code>"
         )
+        if bars_held > 0:
+            hours = (bars_held * 15) // 60
+            mins = (bars_held * 15) % 60
+            dur = f"{hours}s {mins}dk" if hours > 0 else f"{mins}dk"
+            msg += f"\nSüre  : <code>{bars_held} bar ({dur})</code>"
         await self._send(msg)
 
     async def daily_summary(
@@ -128,23 +139,48 @@ class TelegramNotifier:
         entry: float | None = None,
         sl: float | None = None,
         tp: float | None = None,
+        regime: str = "",
+        probs: dict | None = None,
     ) -> None:
-        """Send a concise 15-minute cycle summary."""
+        """Send a detailed 15-minute cycle summary."""
+        # Regime line
+        regime_line = ""
+        if regime:
+            r_emoji = {"bull": "🐂", "bear": "🐻", "choppy": "🌊"}.get(regime, "❓")
+            regime_line = f"\nRejim  : {r_emoji} <b>{regime}</b>"
+
         if signal == "NO_TRADE":
             emoji = "⏸️"
             signal_line = f"Sinyal : <b>İşlem Yok</b> ({reason})"
+            # Show model probabilities if available (low_confidence case)
+            if probs and (probs.get("short", 0) > 0 or probs.get("long", 0) > 0):
+                signal_line += (
+                    f"\n📊 S:{probs['short']*100:.0f}% | "
+                    f"H:{probs['hold']*100:.0f}% | "
+                    f"L:{probs['long']*100:.0f}%"
+                )
         else:
             emoji = "🟢" if signal == "LONG" else "🔴"
+            rr = abs(entry - tp) / abs(entry - sl) if sl and tp and entry and abs(entry - sl) > 0 else 0
             signal_line = (
                 f"Sinyal : <b>{signal}</b> (güven: {confidence*100:.1f}%)\n"
                 f"Giriş  : <code>${entry:,.1f}</code>\n"
-                f"SL     : <code>${sl:,.1f}</code> | TP: <code>${tp:,.1f}</code>"
+                f"SL     : <code>${sl:,.1f}</code> | TP: <code>${tp:,.1f}</code>\n"
+                f"R:R    : <code>{rr:.1f}:1</code>"
             )
+            if probs:
+                signal_line += (
+                    f"\n📊 S:{probs['short']*100:.0f}% | "
+                    f"H:{probs['hold']*100:.0f}% | "
+                    f"L:{probs['long']*100:.0f}%"
+                )
+
         msg = (
             f"{emoji} <b>15dk Rapor — {time_str}</b>\n"
             f"Fiyat  : <code>${price:,.1f}</code>\n"
             f"ATR    : <code>{atr:.1f}</code> (%{atr_pct*100:.0f})\n"
-            f"ADX    : <code>{adx:.1f}</code>\n"
+            f"ADX    : <code>{adx:.1f}</code>"
+            f"{regime_line}\n"
             f"{signal_line}"
         )
         await self._send(msg)

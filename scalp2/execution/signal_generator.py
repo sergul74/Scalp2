@@ -121,43 +121,42 @@ class SignalGenerator:
         regime_probs = self.regime_detector.predict_proba_online(regime_df)
         current_regime = self.regime_detector.current_regime_online(regime_df)
 
-        if regime_probs[-1, RegimeDetector.CHOPPY] > self.config.regime.choppy_threshold:
-            logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
-            return self._no_trade(current_price, current_time, f"choppy_{current_regime}", market_regime=current_regime)
-
-        # 3. Check Time-of-Day Filter
-        if exec_cfg.time_of_day_filter.enabled:
-            hour = current_time.hour if hasattr(current_time, "hour") else pd.to_datetime(current_time).hour
-            if hour in exec_cfg.time_of_day_filter.blocked_hours_utc:
-                logger.debug("Blocked time of day (Hour %d UTC), skipping", hour)
-                return self._no_trade(current_price, current_time, f"blocked_time_{hour}", market_regime=current_regime)
-
-        # 4. Check ADX — no trend below threshold
-        if current_adx < exec_cfg.min_adx:
-            logger.info("ADX too low (%.1f < %.1f), skipping", current_adx, exec_cfg.min_adx)
-            return self._no_trade(current_price, current_time, "low_adx", market_regime=current_regime)
-
-        # 5. Check ATR percentile — no edge in ultra-low volatility
-        if atr_percentile < exec_cfg.min_atr_percentile:
-            logger.info("ATR percentile too low (%.2f < %.2f), skipping",
-                        atr_percentile, exec_cfg.min_atr_percentile)
-            return self._no_trade(current_price, current_time, "low_volatility", market_regime=current_regime)
-
-        # 5. Extract latent
+        # 3. Run model inference (always — so we always have probabilities)
         x = torch.from_numpy(features_scaled).unsqueeze(0).to(self.device)
         with torch.no_grad():
             latent = self.model.extract_latent(x).cpu().numpy()
 
-        # 6. Build meta-features
         handcrafted = features_scaled[-1:, self.top_feature_indices]
         regime_input = regime_probs[-1:].astype(np.float32)
         meta_features = XGBoostMetaLearner.build_meta_features(
             latent, handcrafted, regime_input
         )
 
-        # 7. XGBoost prediction
         probs = self.meta_learner.predict_proba(meta_features)[0]
         prob_dict = {"short": float(probs[0]), "hold": float(probs[1]), "long": float(probs[2])}
+
+        # 4. Check choppy regime
+        if regime_probs[-1, RegimeDetector.CHOPPY] > self.config.regime.choppy_threshold:
+            logger.info("Choppy regime detected (P=%.3f), skipping", regime_probs[-1, 2])
+            return self._no_trade(current_price, current_time, f"choppy_{current_regime}", market_regime=current_regime, probs=prob_dict)
+
+        # 5. Check Time-of-Day Filter
+        if exec_cfg.time_of_day_filter.enabled:
+            hour = current_time.hour if hasattr(current_time, "hour") else pd.to_datetime(current_time).hour
+            if hour in exec_cfg.time_of_day_filter.blocked_hours_utc:
+                logger.debug("Blocked time of day (Hour %d UTC), skipping", hour)
+                return self._no_trade(current_price, current_time, f"blocked_time_{hour}", market_regime=current_regime, probs=prob_dict)
+
+        # 6. Check ADX — no trend below threshold
+        if current_adx < exec_cfg.min_adx:
+            logger.info("ADX too low (%.1f < %.1f), skipping", current_adx, exec_cfg.min_adx)
+            return self._no_trade(current_price, current_time, "low_adx", market_regime=current_regime, probs=prob_dict)
+
+        # 7. Check ATR percentile — no edge in ultra-low volatility
+        if atr_percentile < exec_cfg.min_atr_percentile:
+            logger.info("ATR percentile too low (%.2f < %.2f), skipping",
+                        atr_percentile, exec_cfg.min_atr_percentile)
+            return self._no_trade(current_price, current_time, "low_volatility", market_regime=current_regime, probs=prob_dict)
 
         # 8. Confidence check
         max_prob = max(probs[0], probs[2])

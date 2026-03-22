@@ -141,6 +141,7 @@ class TelegramNotifier:
         tp: float | None = None,
         regime: str = "",
         probs: dict | None = None,
+        indicators: dict | None = None,
     ) -> None:
         """Send a detailed 15-minute cycle summary."""
         # Regime line

@@ -120,6 +120,17 @@ class DataPipeline:
                 len(self.feature_names), current_price, current_atr, current_adx,
             )
 
+            # Extra metrics for Telegram display
+            rsi = float(last_row.get("rsi_14", 0.0)) if "rsi_14" in df_full.columns else 0.0
+            ema_9 = float(last_row.get("ema_9", 0.0)) if "ema_9" in df_full.columns else 0.0
+            ema_21 = float(last_row.get("ema_21", 0.0)) if "ema_21" in df_full.columns else 0.0
+            bb_pct_b = float(last_row.get("bb_pct_b", 0.5)) if "bb_pct_b" in df_full.columns else 0.5
+            stoch_k = float(last_row.get("stoch_k", 50.0)) if "stoch_k" in df_full.columns else 50.0
+            vol_ratio = float(last_row.get("volume_ratio", 1.0)) if "volume_ratio" in df_full.columns else 1.0
+            plus_di = float(last_row.get("plus_di", 0.0)) if "plus_di" in df_full.columns else 0.0
+            minus_di = float(last_row.get("minus_di", 0.0)) if "minus_di" in df_full.columns else 0.0
+            macd_hist = float(last_row.get("macd_hist", 0.0)) if "macd_hist" in df_full.columns else 0.0
+
             return {
                 "features_scaled": window,
                 "regime_df": regime_df,
@@ -128,6 +139,17 @@ class DataPipeline:
                 "current_price": current_price,
                 "atr_percentile": atr_pctile,
                 "df_full": df_full,
+                "indicators": {
+                    "rsi": rsi,
+                    "ema_9": ema_9,
+                    "ema_21": ema_21,
+                    "bb_pct_b": bb_pct_b,
+                    "stoch_k": stoch_k,
+                    "vol_ratio": vol_ratio,
+                    "plus_di": plus_di,
+                    "minus_di": minus_di,
+                    "macd_hist": macd_hist,
+                },
             }
 
         except Exception as e:

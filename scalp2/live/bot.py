@@ -258,6 +258,7 @@ class LiveBot:
         atr = data["current_atr"]
         atr_pct = data["atr_percentile"]
         adx = data["current_adx"]
+        indicators = data.get("indicators", {})
 
         if signal.direction == Direction.NO_TRADE:
             reason = signal.regime or "unknown"
@@ -270,6 +271,7 @@ class LiveBot:
                 signal="NO_TRADE", reason=reason,
                 regime=signal.market_regime,
                 probs=signal.probabilities,
+                indicators=indicators,
             )
             # CSV log
             self._log_cycle_csv(now_key, price, atr, atr_pct, adx, "NO_TRADE", reason)
@@ -286,6 +288,7 @@ class LiveBot:
             sl=signal.stop_loss, tp=signal.take_profit,
             regime=signal.market_regime,
             probs=signal.probabilities,
+            indicators=indicators,
         )
         self._log_cycle_csv(
             now_key, price, atr, atr_pct, adx, direction, "SIGNAL",
